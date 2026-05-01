@@ -39,7 +39,10 @@ class DataProduceServiceImpl(
                     async(Dispatchers.IO) {
                         try {
                             val body = EventDataGenerator.generateRequest(eventCountPerRequest)
-                            ingestionClient.sendEvents(body)
+                            val response = ingestionClient.sendEvents(body)
+                            if (!response.success) {
+                                throw IllegalStateException(response.message ?: "ingestion request was rejected")
+                            }
                             successCount.incrementAndGet()
                         } catch (e: Exception) {
                             failCount.incrementAndGet()

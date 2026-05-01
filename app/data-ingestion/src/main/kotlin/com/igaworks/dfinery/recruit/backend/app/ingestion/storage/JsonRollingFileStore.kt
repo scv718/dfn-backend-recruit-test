@@ -1,6 +1,7 @@
 package com.igaworks.dfinery.recruit.backend.app.ingestion.storage
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.igaworks.dfinery.recruit.backend.app.ingestion.exception.IngestionStorageException
 import java.io.BufferedWriter
 import java.nio.file.Files
 import java.nio.file.Path
@@ -31,16 +32,20 @@ class JsonRollingFileStore(
             return
         }
 
-        rows.forEach { row ->
-            if (writer == null || currentRows >= maxRowsPerFile) {
-                openNextFile()
-            }
+        runCatching {
+            rows.forEach { row ->
+                if (writer == null || currentRows >= maxRowsPerFile) {
+                    openNextFile()
+                }
 
-            writer!!.write(objectMapper.writeValueAsString(row))
-            writer!!.newLine()
-            currentRows += 1
+                writer!!.write(objectMapper.writeValueAsString(row))
+                writer!!.newLine()
+                currentRows += 1
+            }
+            writer!!.flush()
+        }.onFailure { error ->
+            throw IngestionStorageException("Failed to write $filePrefix rows", error)
         }
-        writer!!.flush()
     }
 
     @Synchronized

@@ -29,7 +29,8 @@ class DataIngestionController(
         val accepted = ingestionPipeline.enqueue(request)
         return DataIngestionResponseDTO(
             success = accepted,
-            rowCount = if (accepted) request.events.size else 0
+            rowCount = if (accepted) request.events.size else 0,
+            message = if (accepted) "accepted" else "ingestion queue is full"
         )
     }
 }

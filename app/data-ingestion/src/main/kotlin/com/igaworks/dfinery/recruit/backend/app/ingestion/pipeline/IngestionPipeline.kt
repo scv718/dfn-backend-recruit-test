@@ -1,6 +1,7 @@
 package com.igaworks.dfinery.recruit.backend.app.ingestion.pipeline
 
 import com.igaworks.dfinery.recruit.backend.app.ingestion.config.IngestionProperties
+import com.igaworks.dfinery.recruit.backend.app.ingestion.exception.IngestionPipelineUnavailableException
 import com.igaworks.dfinery.recruit.backend.app.ingestion.storage.IngestionStorage
 import com.igaworks.dfinery.recruit.backend.app.ingestion.validation.EventValidator
 import com.igaworks.dfinery.recruit.backend.model.ingestion.DataIngestionRequestDTO
@@ -32,6 +33,7 @@ class IngestionPipeline(
     private val channel = Channel<DataIngestionRequestDTO>(capacity = properties.queueCapacity.coerceAtLeast(1))
     private val acceptedRequests = AtomicLong(0)
     private val rejectedRequests = AtomicLong(0)
+    private val failedRequests = AtomicLong(0)
 
     @PostConstruct
     fun start() {
@@ -58,6 +60,10 @@ class IngestionPipeline(
             acceptedRequests.incrementAndGet()
             true
         } else {
+            result.exceptionOrNull()?.let { cause ->
+                throw IngestionPipelineUnavailableException("Failed to enqueue collect request", cause)
+            }
+
             rejectedRequests.incrementAndGet()
             log.warn(
                 "Ingestion queue is full. rejectedRequests={}, eventCount={}",
@@ -88,6 +94,7 @@ class IngestionPipeline(
                 invalidEvents.size
             )
         }.onFailure { error ->
+            failedRequests.incrementAndGet()
             log.error("Pipeline worker failed to process request: workerId={}", workerId, error)
         }
     }
@@ -103,9 +110,10 @@ class IngestionPipeline(
         scope.cancel()
         storage.close()
         log.info(
-            "Ingestion pipeline stopped: acceptedRequests={}, rejectedRequests={}",
+            "Ingestion pipeline stopped: acceptedRequests={}, rejectedRequests={}, failedRequests={}",
             acceptedRequests.get(),
-            rejectedRequests.get()
+            rejectedRequests.get(),
+            failedRequests.get()
         )
     }
 }

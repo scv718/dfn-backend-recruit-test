@@ -31,6 +31,14 @@ Implement the `data-ingestion` pipeline so `POST /api/v1/collect` returns immedi
 
 The ingestion queue is bounded. When it is full, the API still responds immediately with HTTP 200, but the response body has `success=false` and `rowCount=0`. This keeps the HTTP contract predictable while making overload visible to the caller and logs.
 
+## Error Handling
+
+- Invalid JSON or malformed request bodies return a structured failure response.
+- Queue saturation returns `success=false` with an explicit message instead of throwing from the controller.
+- Closed or unavailable pipeline failures are surfaced as a service-unavailable response.
+- Worker/storage exceptions are isolated inside the worker scope and logged without stopping the whole pipeline.
+- The producer treats `success=false` ingestion responses as failed sends instead of counting them as successful HTTP calls.
+
 ## Verification Log
 
 ```bash
