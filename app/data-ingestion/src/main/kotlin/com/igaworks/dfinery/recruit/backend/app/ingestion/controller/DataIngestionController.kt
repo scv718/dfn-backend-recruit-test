@@ -23,7 +23,7 @@ class DataIngestionController(
         val common = request.common
         val eventCount = request.events.orEmpty().size
         log.info(
-            "Received collect request: serviceId={}, userId={}, deviceId={}, eventCount={}",
+            "수집 요청 수신: serviceId={}, userId={}, deviceId={}, eventCount={}",
             common?.serviceId,
             common?.userId,
             common?.deviceId,

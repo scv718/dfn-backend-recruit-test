@@ -48,7 +48,7 @@ class IngestionPipeline(
             }
         }
         log.info(
-            "Ingestion pipeline started: workers={}, queueCapacity={}, maxRowsPerFile={}, outputDir={}",
+            "수집 파이프라인 시작: workers={}, queueCapacity={}, maxRowsPerFile={}, outputDir={}",
             workerCount,
             properties.queueCapacity,
             properties.maxRowsPerFile,
@@ -73,7 +73,7 @@ class IngestionPipeline(
 
             rejectedRequests.incrementAndGet()
             log.warn(
-                "Ingestion queue is full. rejectedRequests={}, eventCount={}",
+                "수집 큐가 가득 차 요청을 거절했습니다: rejectedRequests={}, eventCount={}",
                 rejectedRequests.get(),
                 request.events.orEmpty().size
             )
@@ -87,7 +87,7 @@ class IngestionPipeline(
         }.onFailure { error ->
             TraceContext.withTraceId(queuedRequest.traceId) {
                 failedRequests.incrementAndGet()
-                log.error("Pipeline worker failed to process request: workerId={}", workerId, error)
+                log.error("파이프라인 워커가 요청 처리에 실패했습니다: workerId={}", workerId, error)
             }
         }
     }
@@ -107,7 +107,7 @@ class IngestionPipeline(
 
         TraceContext.withTraceId(queuedRequest.traceId) {
             log.debug(
-                "Processed collect request: workerId={}, eventCount={}, valid={}, invalid={}, queuedMs={}",
+                "수집 요청 처리 완료: workerId={}, eventCount={}, valid={}, invalid={}, queuedMs={}",
                 workerId,
                 request.events.orEmpty().size,
                 validEvents.size,
@@ -128,7 +128,7 @@ class IngestionPipeline(
         scope.cancel()
         storage.close()
         log.info(
-            "Ingestion pipeline stopped: acceptedRequests={}, rejectedRequests={}, failedRequests={}",
+            "수집 파이프라인 종료: acceptedRequests={}, rejectedRequests={}, failedRequests={}",
             acceptedRequests.get(),
             rejectedRequests.get(),
             failedRequests.get()

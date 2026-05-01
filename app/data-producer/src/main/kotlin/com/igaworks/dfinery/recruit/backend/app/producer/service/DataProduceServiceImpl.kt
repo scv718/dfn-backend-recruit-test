@@ -30,7 +30,7 @@ class DataProduceServiceImpl(
 
         TraceContext.withTraceId(pushTraceId) {
             log.info(
-                "Push started: totalRequests={}, concurrency={}, eventsPerRequest={}",
+                "데이터 전송 시작: totalRequests={}, concurrency={}, eventsPerRequest={}",
                 requestCount,
                 concurrencyLimit,
                 eventCountPerRequest
@@ -52,7 +52,7 @@ class DataProduceServiceImpl(
                         } catch (e: Exception) {
                             failCount.incrementAndGet()
                             TraceContext.withTraceId(requestTraceId) {
-                                log.error("[{}] failed: {}", idx, e.message)
+                                log.error("[{}] 데이터 전송 실패: {}", idx, e.message)
                             }
                         }
                     }
@@ -63,7 +63,7 @@ class DataProduceServiceImpl(
         val elapsed = System.currentTimeMillis() - startTime
         TraceContext.withTraceId(pushTraceId) {
             log.info(
-                "Push completed: requests(success={}, fail={}), totalEvents={}, elapsed={}ms",
+                "데이터 전송 완료: requests(success={}, fail={}), totalEvents={}, elapsed={}ms",
                 successCount.get(),
                 failCount.get(),
                 successCount.get() * eventCountPerRequest,
