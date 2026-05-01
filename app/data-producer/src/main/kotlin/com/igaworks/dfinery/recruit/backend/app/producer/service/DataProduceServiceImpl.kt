@@ -1,6 +1,7 @@
 package com.igaworks.dfinery.recruit.backend.app.producer.service
 
 import com.igaworks.dfinery.recruit.backend.app.producer.client.IngestionClient
+import com.igaworks.dfinery.recruit.backend.app.producer.trace.TraceContext
 import com.igaworks.dfinery.recruit.backend.library.generator.EventDataGenerator
 import com.igaworks.dfinery.recruit.backend.model.producer.PushResponseDTO
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +20,7 @@ class DataProduceServiceImpl(
     private val log = LoggerFactory.getLogger(javaClass)
 
     override suspend fun push(totalRequests: Int, concurrency: Int, eventsPerRequest: Int): PushResponseDTO {
+        val pushTraceId = TraceContext.currentTraceId()
         val successCount = AtomicInteger(0)
         val failCount = AtomicInteger(0)
         val startTime = System.currentTimeMillis()
@@ -26,27 +28,32 @@ class DataProduceServiceImpl(
         val concurrencyLimit = concurrency.coerceAtLeast(1)
         val eventCountPerRequest = eventsPerRequest.coerceAtLeast(1)
 
-        log.info(
-            "Push started: totalRequests={}, concurrency={}, eventsPerRequest={}",
-            requestCount,
-            concurrencyLimit,
-            eventCountPerRequest
-        )
+        TraceContext.withTraceId(pushTraceId) {
+            log.info(
+                "Push started: totalRequests={}, concurrency={}, eventsPerRequest={}",
+                requestCount,
+                concurrencyLimit,
+                eventCountPerRequest
+            )
+        }
 
         coroutineScope {
             (1..requestCount).chunked(concurrencyLimit).forEach { batch ->
                 batch.map { idx ->
                     async(Dispatchers.IO) {
+                        val requestTraceId = TraceContext.newTraceId()
                         try {
                             val body = EventDataGenerator.generateRequest(eventCountPerRequest)
-                            val response = ingestionClient.sendEvents(body)
+                            val response = ingestionClient.sendEvents(body, requestTraceId)
                             if (!response.success) {
                                 throw IllegalStateException(response.message ?: "ingestion request was rejected")
                             }
                             successCount.incrementAndGet()
                         } catch (e: Exception) {
                             failCount.incrementAndGet()
-                            log.error("[{}] failed: {}", idx, e.message)
+                            TraceContext.withTraceId(requestTraceId) {
+                                log.error("[{}] failed: {}", idx, e.message)
+                            }
                         }
                     }
                 }.awaitAll()
@@ -54,13 +61,15 @@ class DataProduceServiceImpl(
         }
 
         val elapsed = System.currentTimeMillis() - startTime
-        log.info(
-            "Push completed: requests(success={}, fail={}), totalEvents={}, elapsed={}ms",
-            successCount.get(),
-            failCount.get(),
-            successCount.get() * eventCountPerRequest,
-            elapsed
-        )
+        TraceContext.withTraceId(pushTraceId) {
+            log.info(
+                "Push completed: requests(success={}, fail={}), totalEvents={}, elapsed={}ms",
+                successCount.get(),
+                failCount.get(),
+                successCount.get() * eventCountPerRequest,
+                elapsed
+            )
+        }
 
         return PushResponseDTO(
             success = successCount.get(),
