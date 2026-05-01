@@ -22,28 +22,31 @@ class DataProduceServiceImpl(
         val successCount = AtomicInteger(0)
         val failCount = AtomicInteger(0)
         val startTime = System.currentTimeMillis()
+        val requestCount = totalRequests.coerceAtLeast(0)
+        val concurrencyLimit = concurrency.coerceAtLeast(1)
+        val eventCountPerRequest = eventsPerRequest.coerceAtLeast(1)
 
         log.info(
             "Push started: totalRequests={}, concurrency={}, eventsPerRequest={}",
-            totalRequests,
-            concurrency,
-            eventsPerRequest
+            requestCount,
+            concurrencyLimit,
+            eventCountPerRequest
         )
 
         coroutineScope {
-            (1..totalRequests).map { idx ->
-                async(Dispatchers.IO) {
-                    try {
-                        val body = EventDataGenerator.generateRequest(eventsPerRequest)
-                        ingestionClient.sendEvents(body)
-                        successCount.incrementAndGet()
-                    } catch (e: Exception) {
-                        failCount.incrementAndGet()
-                        log.error("[{}] failed: {}", idx, e.message)
+            (1..requestCount).chunked(concurrencyLimit).forEach { batch ->
+                batch.map { idx ->
+                    async(Dispatchers.IO) {
+                        try {
+                            val body = EventDataGenerator.generateRequest(eventCountPerRequest)
+                            ingestionClient.sendEvents(body)
+                            successCount.incrementAndGet()
+                        } catch (e: Exception) {
+                            failCount.incrementAndGet()
+                            log.error("[{}] failed: {}", idx, e.message)
+                        }
                     }
-                }
-            }.chunked(concurrency).forEach { chunk ->
-                chunk.awaitAll()
+                }.awaitAll()
             }
         }
 
@@ -52,7 +55,7 @@ class DataProduceServiceImpl(
             "Push completed: requests(success={}, fail={}), totalEvents={}, elapsed={}ms",
             successCount.get(),
             failCount.get(),
-            successCount.get() * eventsPerRequest,
+            successCount.get() * eventCountPerRequest,
             elapsed
         )
 
