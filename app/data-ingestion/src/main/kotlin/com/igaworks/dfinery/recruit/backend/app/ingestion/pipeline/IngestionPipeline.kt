@@ -71,21 +71,21 @@ class IngestionPipeline(
     private suspend fun process(request: DataIngestionRequestDTO, workerId: Int) {
         runCatching {
             val validatedEvents = validator.validate(request)
+            val validEvents = validatedEvents
+                .filter { it.isValid }
+                .mapNotNull { it.event }
+            val invalidEvents = validatedEvents.filterNot { it.isValid }
+
             withContext(Dispatchers.IO) {
-                validatedEvents.forEach { result ->
-                    if (result.isValid) {
-                        storage.storeValid(request.common, result.event!!)
-                    } else {
-                        storage.storeInvalid(request.common, result.event, result.eventIndex, result.errors)
-                    }
-                }
+                storage.storeValidBatch(request.common, validEvents)
+                storage.storeInvalidBatch(request.common, invalidEvents)
             }
             log.debug(
                 "Processed collect request: workerId={}, eventCount={}, valid={}, invalid={}",
                 workerId,
                 request.events.size,
-                validatedEvents.count { it.isValid },
-                validatedEvents.count { !it.isValid }
+                validEvents.size,
+                invalidEvents.size
             )
         }.onFailure { error ->
             log.error("Pipeline worker failed to process request: workerId={}", workerId, error)

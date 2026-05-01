@@ -13,6 +13,13 @@ Implement the `data-ingestion` pipeline so `POST /api/v1/collect` returns immedi
 - Output files roll over after 2,000 rows.
 - Queue capacity, worker count, file row limit, and output directory are configurable in `application.properties`.
 
+## Performance Notes
+
+- Pipeline workers group validation results by request and write valid/invalid rows in batches.
+- The file store acquires its write lock once per batch and flushes once per batch, instead of flushing every row.
+- File rolling is still enforced inside the batch writer, so a large batch can safely span multiple 2,000-row output files.
+- Further scaling can move the current channel boundary to an external queue and the file writer boundary to shard writers or object storage.
+
 ## Validation Coverage
 
 - Common fields: `service_id`, `user_id`, `device_id`.

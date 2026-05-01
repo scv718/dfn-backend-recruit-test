@@ -21,15 +21,25 @@ class JsonRollingFileStore(
     private var currentRows = 0
     private var fileSequence = 0
 
-    @Synchronized
     fun write(row: Map<String, Any?>) {
-        if (writer == null || currentRows >= maxRowsPerFile) {
-            openNextFile()
+        writeAll(listOf(row))
+    }
+
+    @Synchronized
+    fun writeAll(rows: List<Map<String, Any?>>) {
+        if (rows.isEmpty()) {
+            return
         }
 
-        writer!!.write(objectMapper.writeValueAsString(row))
-        writer!!.newLine()
-        currentRows += 1
+        rows.forEach { row ->
+            if (writer == null || currentRows >= maxRowsPerFile) {
+                openNextFile()
+            }
+
+            writer!!.write(objectMapper.writeValueAsString(row))
+            writer!!.newLine()
+            currentRows += 1
+        }
         writer!!.flush()
     }
 
