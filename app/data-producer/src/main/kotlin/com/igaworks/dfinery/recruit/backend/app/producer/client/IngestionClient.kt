@@ -1,6 +1,7 @@
 package com.igaworks.dfinery.recruit.backend.app.producer.client
 
 import com.igaworks.dfinery.recruit.backend.app.producer.config.ProducerProperties
+import com.igaworks.dfinery.recruit.backend.app.producer.trace.TraceContext
 import com.igaworks.dfinery.recruit.backend.model.ingestion.DataIngestionRequestDTO
 import com.igaworks.dfinery.recruit.backend.model.ingestion.DataIngestionResponseDTO
 import org.springframework.stereotype.Component
@@ -16,9 +17,10 @@ class IngestionClient(
         .codecs { it.defaultCodecs().maxInMemorySize(10 * 1024 * 1024) }
         .build()
 
-    suspend fun sendEvents(body: DataIngestionRequestDTO): DataIngestionResponseDTO {
+    suspend fun sendEvents(body: DataIngestionRequestDTO, traceId: String): DataIngestionResponseDTO {
         return webClient.post()
             .uri("/api/v1/collect")
+            .header(TraceContext.HEADER_NAME, traceId)
             .bodyValue(body)
             .retrieve()
             .awaitBody()
