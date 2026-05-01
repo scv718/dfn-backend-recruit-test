@@ -3,6 +3,7 @@ package com.igaworks.dfinery.recruit.backend.app.ingestion.pipeline
 import com.igaworks.dfinery.recruit.backend.app.ingestion.config.IngestionProperties
 import com.igaworks.dfinery.recruit.backend.app.ingestion.exception.IngestionPipelineUnavailableException
 import com.igaworks.dfinery.recruit.backend.app.ingestion.storage.IngestionStorage
+import com.igaworks.dfinery.recruit.backend.app.ingestion.trace.TraceContext
 import com.igaworks.dfinery.recruit.backend.app.ingestion.validation.EventValidator
 import com.igaworks.dfinery.recruit.backend.model.ingestion.DataIngestionRequestDTO
 import jakarta.annotation.PostConstruct
@@ -20,6 +21,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.time.Instant
 import java.util.concurrent.atomic.AtomicLong
 
 @Service
@@ -30,7 +32,7 @@ class IngestionPipeline(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val channel = Channel<DataIngestionRequestDTO>(capacity = properties.queueCapacity.coerceAtLeast(1))
+    private val channel = Channel<QueuedIngestionRequest>(capacity = properties.queueCapacity.coerceAtLeast(1))
     private val acceptedRequests = AtomicLong(0)
     private val rejectedRequests = AtomicLong(0)
     private val failedRequests = AtomicLong(0)
@@ -54,8 +56,13 @@ class IngestionPipeline(
         )
     }
 
-    fun enqueue(request: DataIngestionRequestDTO): Boolean {
-        val result = channel.trySend(request)
+    fun enqueue(traceId: String, request: DataIngestionRequestDTO): Boolean {
+        val queuedRequest = QueuedIngestionRequest(
+            traceId = traceId,
+            receivedAt = Instant.now(),
+            body = request
+        )
+        val result = channel.trySend(queuedRequest)
         return if (result.isSuccess) {
             acceptedRequests.incrementAndGet()
             true
@@ -74,28 +81,39 @@ class IngestionPipeline(
         }
     }
 
-    private suspend fun process(request: DataIngestionRequestDTO, workerId: Int) {
+    private suspend fun process(queuedRequest: QueuedIngestionRequest, workerId: Int) {
         runCatching {
-            val validatedEvents = validator.validate(request)
-            val validEvents = validatedEvents
-                .filter { it.isValid }
-                .mapNotNull { it.event }
-            val invalidEvents = validatedEvents.filterNot { it.isValid }
-
-            withContext(Dispatchers.IO) {
-                storage.storeValidBatch(request.common, validEvents)
-                storage.storeInvalidBatch(request.common, invalidEvents)
+            processWithTrace(queuedRequest, workerId)
+        }.onFailure { error ->
+            TraceContext.withTraceId(queuedRequest.traceId) {
+                failedRequests.incrementAndGet()
+                log.error("Pipeline worker failed to process request: workerId={}", workerId, error)
             }
+        }
+    }
+
+    private suspend fun processWithTrace(queuedRequest: QueuedIngestionRequest, workerId: Int) {
+        val request = queuedRequest.body
+        val validatedEvents = validator.validate(request)
+        val validEvents = validatedEvents
+            .filter { it.isValid }
+            .mapNotNull { it.event }
+        val invalidEvents = validatedEvents.filterNot { it.isValid }
+
+        withContext(Dispatchers.IO) {
+            storage.storeValidBatch(queuedRequest.traceId, request.common, validEvents)
+            storage.storeInvalidBatch(queuedRequest.traceId, request.common, invalidEvents)
+        }
+
+        TraceContext.withTraceId(queuedRequest.traceId) {
             log.debug(
-                "Processed collect request: workerId={}, eventCount={}, valid={}, invalid={}",
+                "Processed collect request: workerId={}, eventCount={}, valid={}, invalid={}, queuedMs={}",
                 workerId,
                 request.events.size,
                 validEvents.size,
-                invalidEvents.size
+                invalidEvents.size,
+                Instant.now().toEpochMilli() - queuedRequest.receivedAt.toEpochMilli()
             )
-        }.onFailure { error ->
-            failedRequests.incrementAndGet()
-            log.error("Pipeline worker failed to process request: workerId={}", workerId, error)
         }
     }
 

@@ -1,6 +1,7 @@
 package com.igaworks.dfinery.recruit.backend.app.ingestion.controller
 
 import com.igaworks.dfinery.recruit.backend.app.ingestion.exception.IngestionPipelineUnavailableException
+import com.igaworks.dfinery.recruit.backend.app.ingestion.trace.TraceContext
 import com.igaworks.dfinery.recruit.backend.model.ingestion.DataIngestionResponseDTO
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -41,7 +42,8 @@ class DataIngestionExceptionHandler {
                 DataIngestionResponseDTO(
                     success = false,
                     rowCount = 0,
-                    message = message
+                    message = message,
+                    traceId = TraceContext.currentTraceId()
                 )
             )
     }

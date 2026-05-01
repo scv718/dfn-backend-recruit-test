@@ -29,11 +29,12 @@ class IngestionStorage(
         maxRowsPerFile = maxRowsPerFile
     )
 
-    fun storeValidBatch(common: DataIngestionRequestDTO.Common, events: List<Event>) {
+    fun storeValidBatch(traceId: String, common: DataIngestionRequestDTO.Common, events: List<Event>) {
         val ingestedAt = Instant.now().toString()
         validStore.writeAll(
             events.map { event ->
                 mapOf(
+                    "trace_id" to traceId,
                     "ingested_at" to ingestedAt,
                     "service_id" to common.serviceId,
                     "user_id" to common.userId,
@@ -47,11 +48,12 @@ class IngestionStorage(
         )
     }
 
-    fun storeInvalidBatch(common: DataIngestionRequestDTO.Common, invalidEvents: List<ValidatedEvent>) {
+    fun storeInvalidBatch(traceId: String, common: DataIngestionRequestDTO.Common, invalidEvents: List<ValidatedEvent>) {
         val receivedAt = Instant.now().toString()
         invalidStore.writeAll(
             invalidEvents.map { result ->
                 mapOf(
+                    "trace_id" to traceId,
                     "received_at" to receivedAt,
                     "service_id" to common.serviceId,
                     "user_id" to common.userId,

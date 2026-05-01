@@ -39,6 +39,13 @@ The ingestion queue is bounded. When it is full, the API still responds immediat
 - Worker/storage exceptions are isolated inside the worker scope and logged without stopping the whole pipeline.
 - The producer treats `success=false` ingestion responses as failed sends instead of counting them as successful HTTP calls.
 
+## Traceability
+
+- The ingestion API accepts `X-Trace-Id` and generates one when the header is absent.
+- The trace id is returned in the API response and written to valid/invalid JSONL rows.
+- Logs use `[traceId][prefix] message` format so controller and worker logs can be correlated.
+- The producer sends a unique `X-Trace-Id` for each collect request.
+
 ## Verification Log
 
 ```bash

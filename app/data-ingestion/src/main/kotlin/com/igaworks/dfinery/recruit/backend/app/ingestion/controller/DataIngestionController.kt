@@ -1,6 +1,7 @@
 package com.igaworks.dfinery.recruit.backend.app.ingestion.controller
 
 import com.igaworks.dfinery.recruit.backend.app.ingestion.pipeline.IngestionPipeline
+import com.igaworks.dfinery.recruit.backend.app.ingestion.trace.TraceContext
 import com.igaworks.dfinery.recruit.backend.model.ingestion.DataIngestionRequestDTO
 import com.igaworks.dfinery.recruit.backend.model.ingestion.DataIngestionResponseDTO
 import org.slf4j.LoggerFactory
@@ -18,6 +19,7 @@ class DataIngestionController(
 
     @PostMapping("/v1/collect")
     suspend fun collect(@RequestBody request: DataIngestionRequestDTO): DataIngestionResponseDTO {
+        val traceId = TraceContext.currentTraceId()
         log.info(
             "Received collect request: serviceId={}, userId={}, deviceId={}, eventCount={}",
             request.common.serviceId,
@@ -26,11 +28,12 @@ class DataIngestionController(
             request.events.size
         )
 
-        val accepted = ingestionPipeline.enqueue(request)
+        val accepted = ingestionPipeline.enqueue(traceId, request)
         return DataIngestionResponseDTO(
             success = accepted,
             rowCount = if (accepted) request.events.size else 0,
-            message = if (accepted) "accepted" else "ingestion queue is full"
+            message = if (accepted) "accepted" else "ingestion queue is full",
+            traceId = traceId
         )
     }
 }
