@@ -20,18 +20,20 @@ class DataIngestionController(
     @PostMapping("/v1/collect")
     suspend fun collect(@RequestBody request: DataIngestionRequestDTO): DataIngestionResponseDTO {
         val traceId = TraceContext.currentTraceId()
+        val common = request.common
+        val eventCount = request.events.orEmpty().size
         log.info(
             "Received collect request: serviceId={}, userId={}, deviceId={}, eventCount={}",
-            request.common.serviceId,
-            request.common.userId,
-            request.common.deviceId,
-            request.events.size
+            common?.serviceId,
+            common?.userId,
+            common?.deviceId,
+            eventCount
         )
 
         val accepted = ingestionPipeline.enqueue(traceId, request)
         return DataIngestionResponseDTO(
             success = accepted,
-            rowCount = if (accepted) request.events.size else 0,
+            rowCount = if (accepted) eventCount else 0,
             message = if (accepted) "accepted" else "ingestion queue is full",
             traceId = traceId
         )

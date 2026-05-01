@@ -17,7 +17,8 @@ class EventValidator {
 
     fun validate(request: DataIngestionRequestDTO): List<ValidatedEvent> {
         val commonErrors = validateCommon(request.common)
-        if (request.events.isEmpty()) {
+        val events = request.events
+        if (events.isNullOrEmpty()) {
             return listOf(
                 ValidatedEvent(
                     event = null,
@@ -27,7 +28,7 @@ class EventValidator {
             )
         }
 
-        return request.events.mapIndexed { index, event ->
+        return events.mapIndexed { index, event ->
             ValidatedEvent(
                 event = event,
                 eventIndex = index,
@@ -36,7 +37,11 @@ class EventValidator {
         }
     }
 
-    private fun validateCommon(common: DataIngestionRequestDTO.Common): List<String> {
+    private fun validateCommon(common: DataIngestionRequestDTO.Common?): List<String> {
+        if (common == null) {
+            return listOf("common must not be null")
+        }
+
         val errors = mutableListOf<String>()
         requireString("service_id", common.serviceId, maxLength = 50, errors = errors)
         requireUuid("user_id", common.userId, errors)
@@ -44,7 +49,11 @@ class EventValidator {
         return errors
     }
 
-    private fun validateEvent(event: Event): List<String> {
+    private fun validateEvent(event: Event?): List<String> {
+        if (event == null) {
+            return listOf("event must not be null")
+        }
+
         val errors = mutableListOf<String>()
         validateEventLogId(event.eventLogId, errors)
         val eventName = validateEventName(event.eventName, errors)
@@ -57,8 +66,8 @@ class EventValidator {
         return errors
     }
 
-    private fun validateEventLogId(value: String, errors: MutableList<String>) {
-        if (value.isBlank()) {
+    private fun validateEventLogId(value: String?, errors: MutableList<String>) {
+        if (value.isNullOrBlank()) {
             errors += "event_log_id must not be blank"
             return
         }
@@ -78,8 +87,8 @@ class EventValidator {
         }
     }
 
-    private fun validateEventName(value: String, errors: MutableList<String>): EventName? {
-        if (value.isBlank()) {
+    private fun validateEventName(value: String?, errors: MutableList<String>): EventName? {
+        if (value.isNullOrBlank()) {
             errors += "event_name must not be blank"
             return null
         }
@@ -91,8 +100,8 @@ class EventValidator {
         return eventName
     }
 
-    private fun validateEventDatetime(value: String, errors: MutableList<String>) {
-        if (value.isBlank()) {
+    private fun validateEventDatetime(value: String?, errors: MutableList<String>) {
+        if (value.isNullOrBlank()) {
             errors += "event_datetime must not be blank"
             return
         }
@@ -109,7 +118,7 @@ class EventValidator {
 
     private fun validateProperties(
         eventName: EventName,
-        properties: Map<String, Any>?,
+        properties: Map<String, Any?>?,
         errors: MutableList<String>
     ) {
         when (eventName) {
@@ -167,9 +176,9 @@ class EventValidator {
 
     private fun requireProperties(
         eventName: EventName,
-        properties: Map<String, Any>?,
+        properties: Map<String, Any?>?,
         errors: MutableList<String>
-    ): Map<String, Any>? {
+    ): Map<String, Any?>? {
         if (properties == null) {
             errors += "${eventName.eventName} must have event_properties"
         }
@@ -178,11 +187,11 @@ class EventValidator {
 
     private fun requireString(
         field: String,
-        value: String,
+        value: String?,
         maxLength: Int,
         errors: MutableList<String>
     ) {
-        if (value.isBlank()) {
+        if (value.isNullOrBlank()) {
             errors += "$field must not be blank"
         } else if (value.length > maxLength) {
             errors += "$field length must be <= $maxLength"
@@ -191,7 +200,7 @@ class EventValidator {
 
     private fun requireString(
         field: String,
-        map: Map<String, Any>,
+        map: Map<String, Any?>,
         maxLength: Int,
         errors: MutableList<String>
     ) {
@@ -203,15 +212,15 @@ class EventValidator {
         requireString(field, value, maxLength, errors)
     }
 
-    private fun requireUuid(field: String, value: String, errors: MutableList<String>) {
-        if (value.isBlank()) {
+    private fun requireUuid(field: String, value: String?, errors: MutableList<String>) {
+        if (value.isNullOrBlank()) {
             errors += "$field must not be blank"
         } else if (!isUuid(value)) {
             errors += "$field must be UUID"
         }
     }
 
-    private fun requireUuid(field: String, map: Map<String, Any>, errors: MutableList<String>) {
+    private fun requireUuid(field: String, map: Map<String, Any?>, errors: MutableList<String>) {
         val value = map[field]
         if (value !is String) {
             errors += "$field must be UUID string"
@@ -222,7 +231,7 @@ class EventValidator {
 
     private fun requireEnum(
         field: String,
-        map: Map<String, Any>,
+        map: Map<String, Any?>,
         allowed: Set<String>,
         errors: MutableList<String>
     ) {
@@ -234,7 +243,7 @@ class EventValidator {
 
     private fun requireNumber(
         field: String,
-        map: Map<String, Any>,
+        map: Map<String, Any?>,
         minInclusive: Double? = null,
         minExclusive: Double? = null,
         errors: MutableList<String>
@@ -256,7 +265,7 @@ class EventValidator {
 
     private fun requireInteger(
         field: String,
-        map: Map<String, Any>,
+        map: Map<String, Any?>,
         minInclusive: Long,
         errors: MutableList<String>
     ) {

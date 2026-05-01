@@ -75,7 +75,7 @@ class IngestionPipeline(
             log.warn(
                 "Ingestion queue is full. rejectedRequests={}, eventCount={}",
                 rejectedRequests.get(),
-                request.events.size
+                request.events.orEmpty().size
             )
             false
         }
@@ -109,7 +109,7 @@ class IngestionPipeline(
             log.debug(
                 "Processed collect request: workerId={}, eventCount={}, valid={}, invalid={}, queuedMs={}",
                 workerId,
-                request.events.size,
+                request.events.orEmpty().size,
                 validEvents.size,
                 invalidEvents.size,
                 Instant.now().toEpochMilli() - queuedRequest.receivedAt.toEpochMilli()

@@ -6,13 +6,13 @@ import com.igaworks.dfinery.recruit.backend.model.event.Event
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class DataIngestionRequestDTO(
-    val common: Common,
-    val events: List<Event>
+    val common: Common? = null,
+    val events: List<Event?>? = null
 ) {
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
     data class Common(
-        val serviceId: String,
-        val userId: String,
-        val deviceId: String
+        val serviceId: String? = null,
+        val userId: String? = null,
+        val deviceId: String? = null
     )
 }

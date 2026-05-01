@@ -5,8 +5,8 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class Event(
-    val eventLogId: String,
-    val eventName: String,
-    val eventDatetime: String,
-    val eventProperties: Map<String, Any>? = null
+    val eventLogId: String? = null,
+    val eventName: String? = null,
+    val eventDatetime: String? = null,
+    val eventProperties: Map<String, Any?>? = null
 )
